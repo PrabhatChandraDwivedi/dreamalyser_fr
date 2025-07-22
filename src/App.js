@@ -56,7 +56,7 @@ function App() {
     setResult(null);
 
     try {
-      const response = await fetch('http://127.0.0.1:5000/analyze_dream', {
+      const response = await fetch('https://dreamalyser.onrender.com/analyze_dream', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
