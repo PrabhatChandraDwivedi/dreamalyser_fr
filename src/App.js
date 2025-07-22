@@ -1,287 +1,172 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState, useMemo } from 'react';
+import './App.css';
 
-export default function DreamAnalyzer() {
-  const [dream, setDream] = useState('');
+function App() {
+  const [dreamText, setDreamText] = useState('');
+  const [result, setResult] = useState(null);
   const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [leaderboard, setLeaderboard] = useState([]);
-  const [selectedUserIndex, setSelectedUserIndex] = useState(null);
+  const [error, setError] = useState('');
 
-  const analyzeDream = async () => {
-    if (!dream.trim()) {
-      setError('Please enter a dream description.');
-      return;
+  const shapes = ['circle', 'star', 'pentagon'];
+
+  const getRandomShape = () => {
+    const shape = shapes[Math.floor(Math.random() * shapes.length)];
+    switch (shape) {
+      case 'circle':
+        return <circle cx="20" cy="20" r="20" />;
+      case 'star':
+        return (
+          <path d="M20 0 L25 15 L40 15 L28 24 L33 38 L20 30 L7 38 L12 24 L0 15 L15 15 Z" />
+        );
+      case 'pentagon':
+        return (
+          <path d="M20,0 L40,15 L32,40 L8,40 L0,15 Z" />
+        );
+      default:
+        return <circle cx="20" cy="20" r="20" />;
     }
-    setError(null);
+  };
+
+  const floatingShapes = useMemo(() => {
+    return Array.from({ length: 100 }, (_, i) => {
+      const left = Math.random() * 100;
+      const top = Math.random() * 100;
+      const delay = Math.random() * 20;
+
+      return (
+        <div
+          key={i}
+          className="floating-shape"
+          style={{
+            left: `${left}vw`,
+            top: `${top}vh`,
+            animationDelay: `${delay}s`,
+          }}
+        >
+          <svg viewBox="0 0 40 40">{getRandomShape()}</svg>
+        </div>
+      );
+    });
+  }, []);
+
+  const handleAnalyze = async () => {
     setLoading(true);
+    setError('');
+    setResult(null);
 
     try {
-      const response = await fetch('https://dreamalyser.onrender.com/analyze_dream', {
+      const response = await fetch('http://127.0.0.1:5000/analyze_dream', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ dream, name }),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ name, dream: dreamText }),
       });
 
       if (!response.ok) {
-        throw new Error(`Server error: ${response.statusText}`);
+        throw new Error('Failed to analyze dream');
       }
 
       const data = await response.json();
-      if (!data.kpi_scores) {
-        setError('No analysis received from server.');
-        return;
-      }
-
-      setLeaderboard(prev => [
-        ...prev,
-        {
-          name: data.name,
-          dream,
-          scores: data.kpi_scores,
-        },
-      ]);
-
-      setDream('');
-      setError(null);
-      setSelectedUserIndex(null);
+      setResult(data);
     } catch (err) {
-      setError(err.message || 'Unknown error');
+      console.error(err);
+      setError('Something went wrong. Please try again.');
     } finally {
       setLoading(false);
     }
   };
-  useEffect(() => {
-    const dummyData = [
-      {
-        name: 'Ben',
-        dream: 'I was walking through a forest made of mirrors.',
-        scores: {
-          emotion: 7,
-          symbolism: 9,
-          vividness: 8,
-          coherence: 6,
-          resolution: 5,
-          final: 35,
-        }
-      },
-      {
-        name: 'Maya',
-        dream: 'I met a dragon that spoke in riddles under a waterfall.',
-        scores: {
-          emotion: 9,
-          symbolism: 10,
-          vividness: 9,
-          coherence: 7,
-          resolution: 6,
-          final: 41,
-        }
-      },
-      {
-        name: 'Liam',
-        dream: 'I was trapped in an infinite library where books whispered.',
-        scores: {
-          emotion: 6,
-          symbolism: 8,
-          vividness: 7,
-          coherence: 7,
-          resolution: 8,
-          final: 36,
-        }
-      },
-    ];
-    setLeaderboard(dummyData);
-  }, []);
-  const toggleDetails = (index) => {
-    setSelectedUserIndex(selectedUserIndex === index ? null : index);
+
+  // ✅ Reset handler
+  const handleReset = () => {
+    setDreamText('');
+    setResult(null);
+    setName('');
+    setError('');
+    setLoading(false);
   };
 
-  // Generate slow-blinking stars
-  const stars = Array.from({ length: 100 }, (_, i) => {
-    const top = Math.random() * 100;
-    const left = Math.random() * 100;
-    return (
-      <div
-        key={i}
-        className="star"
-        style={{
-          '--i': i,
-          '--t': `${top}`,
-          '--l': `${left}`,
-        }}
-      />
-    );
-  });
-
   return (
-    <div style={{ position: 'relative', fontFamily: 'Arial, sans-serif', padding: '2rem' }}>
-      <div className="star-field">{stars}</div>
+    <div className="App">
+      <div>{floatingShapes}</div>
 
-      <div style={{ position: 'relative', zIndex: 1, maxWidth: 800, margin: '0 auto', color: 'white' }}>
-        <h1>Dream Analyzer</h1>
+      {!result && (
+        <div className="flashy-banner">
+          <span className="blink-text">🌙 Enter your dream and get your personalized dream card!! 🌈</span>
+        </div>
+      )}
 
-        <label htmlFor="name">Name:</label><br />
-        <input
-          id="name"
-          type="text"
-          value={name}
-          onChange={e => setName(e.target.value)}
-          className="input-box"
-          placeholder='Enter your name'
-        />
-
-        <label htmlFor="dream">Enter your dream description:</label><br />
-        <textarea
-          id="dream"
-          rows={5}
-          value={dream}
-          onChange={e => setDream(e.target.value)}
-          className="input-box"
-          placeholder="I was flying over a city with burning buildings and then I met a talking cat..."
-        />
-
-        <button
-          onClick={analyzeDream}
-          disabled={loading}
-          style={{
-            padding: '0.5rem 1rem',
-            cursor: loading ? 'not-allowed' : 'pointer',
-            backgroundColor: '#007bff',
-            color: '#fff',
-            border: 'none',
-            borderRadius: 4,
-            marginTop: '1rem'
-          }}
-        >
-          {loading ? 'Analyzing...' : 'Analyze Dream'}
-        </button>
-
-        {error && <p style={{ color: 'red', marginTop: '1rem' }}>{error}</p>}
-
-        {leaderboard.length > 0 && (
-          <div style={{ marginTop: '3rem' }}>
-            <h2>Leaderboard</h2>
-            <table className="leaderboard-table">
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>Final Score</th>
-                </tr>
-              </thead>
-              <tbody>
-                {leaderboard.map((entry, i) => (
-                  <React.Fragment key={i}>
-                    <tr
-                      className={`leaderboard-row ${selectedUserIndex === i ? 'selected' : ''}`}
-                      onClick={() => toggleDetails(i)}
-                    >
-                      <td>{entry.name}</td>
-                      <td>{entry.scores.final}/50</td>
-                    </tr>
-
-                    {selectedUserIndex === i && (
-                      <tr className="leaderboard-details">
-                        <td colSpan={2}>
-                          <div>
-                            <p><strong>Dream:</strong> {entry.dream}</p>
-                            <p><strong>Emotion:</strong> {entry.scores.emotion}/10</p>
-                            <p><strong>Symbolism:</strong> {entry.scores.symbolism}/10</p>
-                            <p><strong>Vividness:</strong> {entry.scores.vividness}/10</p>
-                            <p><strong>Coherence:</strong> {entry.scores.coherence}/10</p>
-                            <p><strong>Resolution:</strong> {entry.scores.resolution}/10</p>
-                          </div>
-                        </td>
-                      </tr>
-                    )}
-                  </React.Fragment>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+      <div className="flashy-banner">
+        <span className="blink-text">🔥 Dream Battles Coming Soon!! 🚀</span>
       </div>
 
-      {/* Styles */}
-      <style>{`
-        body {
-          background-color: black;
-        }
+<div className="max-w-xl mx-auto p-6 bg-white bg-opacity-90 rounded-xl shadow-md fixed bottom-10 left-1/2 transform -translate-x-1/2 w-[90%]">
+  {!result && (
+    <>
+      <h1 className="text-xl font-semibold mb-4 text-center">Dreams are more than just dreams ...</h1>
 
-        .input-box {
-          color: black;
-          width: 100%;
-          padding: 0.5rem;
-          margin-bottom: 1rem;
-          border: 1px solid #ccc;
-          border-radius: 4px;
-          transition: box-shadow 0.3s ease, border-color 0.3s ease;
-        }
+      <input
+        type="text"
+        placeholder="Enter your name"
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        className="w-full px-4 py-3 text-base mb-4 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-400"
+      />
 
-        .input-box:hover,
-        .input-box:focus {
-          border-color: #00f0ff;
-          box-shadow: 0 0 8px #00f0ff;
-          outline: none;
-        }
+      <textarea
+        placeholder="Enter your dream..."
+        value={dreamText}
+        onChange={(e) => setDreamText(e.target.value)}
+        rows={3}
+        className="w-full px-4 py-3 text-base mb-4 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-400"
+      />
 
-        .leaderboard-table {
-          width: 100%;
-          border-collapse: collapse;
-          box-shadow: 0 0 10px rgba(255, 255, 255, 0.2);
-        }
+      <button
+        onClick={handleAnalyze}
+        disabled={loading}
+        className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-md transition disabled:opacity-50"
+      >
+        {loading ? 'Analyzing...' : 'Analyze Dream'}
+      </button>
 
-        .leaderboard-table th,
-        .leaderboard-table td {
-          padding: 0.5rem;
-          border-bottom: 1px solid #555;
-          text-align: left;
-        }
+      {error && <p className="text-red-500 mt-2 text-sm">{error}</p>}
+    </>
+  )}
 
-        .leaderboard-row {
-          cursor: pointer;
-          transition: background-color 0.3s;
-        }
+  {result && (
+    <div className="result">
+      <h2 className="text-lg font-bold mb-4 text-center">{result.name}'s Dream Score</h2>
+      <ul className="flex justify-between flex-wrap mb-4 border rounded-md overflow-hidden">
+        <li className="flex-1 text-center border-r border-black p-2"style={{fontSize:"small"}}><strong>Emotion:</strong> {result.kpi_scores.emotion}</li>
+        <li className="flex-1 text-center border-r border-black p-2"style={{fontSize:"small"}}><strong>Symbolism:</strong> {result.kpi_scores.symbolism}</li>
+        <li className="flex-1 text-center border-r border-black p-2"style={{fontSize:"small"}}><strong>Vividness:</strong> {result.kpi_scores.vividness}</li>
+        <li className="flex-1 text-center border-r border-black p-2"style={{fontSize:"small"}}><strong>Coherence:</strong> {result.kpi_scores.coherence}</li>
+        <li className="flex-1 text-center border-r border-black p-2"style={{fontSize:"small"}}><strong>Resolution:</strong> {result.kpi_scores.resolution}</li>
+        <li className="flex-1 text-center p-2"style={{fontSize:"small"}}><strong>Final:</strong> {result.kpi_scores.final}</li>
+      </ul>
 
-        .leaderboard-row:hover {
-          background-color: #222;
-        }
+      <div className="card flex flex-col items-center justify-center">
+        <p className="text-sm font-semibold mb-2">Your Dream Card:</p>
+        <img
+          src={result.card}
+          alt="Dream Card"
+          className="rounded-xl h-52 object-contain"
+        />
+      </div>
 
-        .leaderboard-row.selected {
-          background-color: #333;
-        }
+      <button
+        onClick={handleReset}
+        className="mt-6 w-full bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded-md transition"
+      >
+        🔁 Analyze Another Dream
+      </button>
+    </div>
+  )}
+</div>
 
-        .leaderboard-details td {
-          background-color: #111;
-        }
-
-        .star-field {
-          position: fixed;
-          top: 0;
-          left: 0;
-          width: 100%;
-          height: 100%;
-          pointer-events: none;
-          overflow: hidden;
-          z-index: 0;
-        }
-
-        .star {
-          position: absolute;
-          width: 2px;
-          height: 2px;
-          background-color: white;
-          opacity: 0.2;
-          top: calc(var(--t) * 1%);
-          left: calc(var(--l) * 1%);
-          animation: blink 6s infinite ease-in-out;
-          animation-delay: calc(var(--i) * 0.1s);
-        }
-
-        @keyframes blink {
-          0%, 100% { opacity: 0.2; }
-          50% { opacity: 1; }
-        }
-      `}</style>
     </div>
   );
 }
+
+export default App;
